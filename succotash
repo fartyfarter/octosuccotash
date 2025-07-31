@@ -1,0 +1,499 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local CollectionService = game:GetService("CollectionService")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+local ESP = {}
+local WorldESP = {Generators = {}, Pallets = {}, Windows = {}}
+local Toggles = {
+    Boxes = false,
+    Tracers = false,
+    Name = false,
+    Health = false,
+    Highlight = false,
+
+    VD_PlayersESP = false,
+    VD_GeneratorESP = false,
+    VD_PalletESP = false,
+    VD_WindowESP = false,
+    VD_Highlight = false, -- Separate highlight toggle for VD players
+    VD_Boxes = false,     -- Separate boxes toggle for VD players
+}
+
+local Window = Rayfield:CreateWindow({
+    Name = "Executor ESP",
+    LoadingTitle = "ESP Loading...",
+    LoadingSubtitle = "by you",
+    ConfigurationSaving = {
+        Enabled = true,
+        FileName = "ExecutorESP"
+    },
+    Discord = {
+        Enabled = false
+    },
+    KeySystem = false
+})
+
+-- Normal ESP tab
+local ESPTab = Window:CreateTab("ESP", 4483362458)
+
+ESPTab:CreateToggle({
+    Name = "Boxes",
+    CurrentValue = false,
+    Callback = function(v) Toggles.Boxes = v end,
+})
+
+ESPTab:CreateToggle({
+    Name = "Tracers",
+    CurrentValue = false,
+    Callback = function(v) Toggles.Tracers = v end,
+})
+
+ESPTab:CreateToggle({
+    Name = "Name (Top)",
+    CurrentValue = false,
+    Callback = function(v) Toggles.Name = v end,
+})
+
+ESPTab:CreateToggle({
+    Name = "Health (Bottom)",
+    CurrentValue = false,
+    Callback = function(v) Toggles.Health = v end,
+})
+
+ESPTab:CreateToggle({
+    Name = "Highlight (Chams)",
+    CurrentValue = false,
+    Callback = function(v) Toggles.Highlight = v end,
+})
+
+-- Violence District tab
+local VDTab = Window:CreateTab("Violence District", 4483362458)
+
+VDTab:CreateToggle({
+    Name = "Players ESP",
+    CurrentValue = false,
+    Callback = function(v)
+        Toggles.VD_PlayersESP = v
+    end,
+})
+
+VDTab:CreateToggle({
+    Name = "Generator ESP",
+    CurrentValue = false,
+    Callback = function(v)
+        Toggles.VD_GeneratorESP = v
+    end,
+})
+
+VDTab:CreateToggle({
+    Name = "Pallet ESP",
+    CurrentValue = false,
+    Callback = function(v)
+        Toggles.VD_PalletESP = v
+    end,
+})
+
+VDTab:CreateToggle({
+    Name = "Window ESP",
+    CurrentValue = false,
+    Callback = function(v)
+        Toggles.VD_WindowESP = v
+    end,
+})
+
+VDTab:CreateToggle({
+    Name = "Highlight (Chams)",
+    CurrentValue = false,
+    Callback = function(v)
+        Toggles.VD_Highlight = v
+    end,
+})
+
+VDTab:CreateToggle({
+    Name = "Boxes",
+    CurrentValue = false,
+    Callback = function(v)
+        Toggles.VD_Boxes = v
+    end,
+})
+
+-- Development tab
+local DevTab = Window:CreateTab("Development", 4483362458)
+
+DevTab:CreateButton({
+    Name = "Destroy Interface",
+    Callback = function()
+        Rayfield:Destroy()
+        for _, drawings in pairs(ESP) do
+            for _, obj in pairs(drawings) do
+                if typeof(obj) == "Instance" then
+                    obj:Destroy()
+                else
+                    obj:Remove()
+                end
+            end
+        end
+        -- Clean World ESP drawings
+        for _, category in pairs(WorldESP) do
+            for _, drawObj in pairs(category) do
+                drawObj:Remove()
+            end
+        end
+        ESP = {}
+        WorldESP = {Generators = {}, Pallets = {}, Windows = {}}
+        Toggles = nil
+        warn("Interface destroyed and ESP cleared.")
+    end,
+})
+
+DevTab:CreateButton({
+    Name = "Send Notification",
+    Callback = function()
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "Development",
+            Text = "This is a test notification!",
+            Duration = 5
+        })
+    end,
+})
+
+-- Helper to create ESP drawings for players
+local function CreateESP(player)
+    if player == LocalPlayer or ESP[player] then return end
+
+    local highlight = Instance.new("Highlight")
+    highlight.FillColor = Color3.fromRGB(0, 120, 255)   -- Blue default
+    highlight.OutlineColor = Color3.new(1, 1, 1)
+    highlight.FillTransparency = 0.5
+    highlight.OutlineTransparency = 0
+    highlight.Enabled = false
+    highlight.Name = "ESP_Highlight"
+    highlight.Adornee = nil
+    highlight.Parent = game.CoreGui
+
+    local box = Drawing.new("Square")
+    box.Color = Color3.fromRGB(255, 255, 255)
+    box.Thickness = 1
+    box.Transparency = 1
+    box.Filled = false
+
+    local tracer = Drawing.new("Line")
+    tracer.Color = Color3.fromRGB(255, 255, 255)
+    tracer.Thickness = 1
+    tracer.Transparency = 1
+
+    local name = Drawing.new("Text")
+    name.Size = 14
+    name.Color = Color3.fromRGB(255, 255, 255)
+    name.Center = true
+    name.Outline = true
+
+    local health = Drawing.new("Text")
+    health.Size = 14
+    health.Color = Color3.fromRGB(0, 255, 0)
+    health.Center = true
+    health.Outline = true
+
+    ESP[player] = {
+        Box = box,
+        Tracer = tracer,
+        Name = name,
+        Health = health,
+        Highlight = highlight
+    }
+end
+
+local function RemoveESP(player)
+    if ESP[player] then
+        for _, obj in pairs(ESP[player]) do
+            if typeof(obj) == "Instance" then
+                obj:Destroy()
+            else
+                obj:Remove()
+            end
+        end
+        ESP[player] = nil
+    end
+end
+
+-- Scan all existing players and create ESP
+for _, player in pairs(Players:GetPlayers()) do
+    CreateESP(player)
+end
+
+-- Automatically create ESP for new players
+Players.PlayerAdded:Connect(CreateESP)
+Players.PlayerRemoving:Connect(RemoveESP)
+
+local function getVDTeam(player)
+    local team = player.Team
+    if not team then return nil end
+    local name = team.Name:lower()
+    if name:find("killer") then
+        return "Killer"
+    elseif name:find("survivor") then
+        return "Survivor"
+    else
+        return nil
+    end
+end
+
+-- Helper function to create box ESP for world objects
+local function CreateBoxESP(obj)
+    local box = Drawing.new("Square")
+    box.Color = Color3.fromRGB(255, 255, 255)
+    box.Thickness = 1
+    box.Transparency = 1
+    box.Filled = false
+    return box
+end
+
+-- Manage ESP for World Objects (Generators, Pallets, Windows)
+local function UpdateWorldESP(categoryName, folderName)
+    local category = WorldESP[categoryName]
+    if not category then return end
+
+    -- Get folder from workspace
+    local folder = workspace:FindFirstChild(folderName)
+    if not folder then
+        -- Clear any previous drawings if folder missing
+        for _, box in pairs(category) do
+            box:Remove()
+        end
+        WorldESP[categoryName] = {}
+        return
+    end
+
+    -- Track objects currently found this frame
+    local foundObjects = {}
+
+    for _, obj in pairs(folder:GetChildren()) do
+        -- Only consider BaseParts for drawing bounding boxes
+        local primaryPart = obj:IsA("BasePart") and obj or obj.PrimaryPart
+        if primaryPart then
+            if not category[obj] then
+                -- Create box if doesn't exist
+                category[obj] = CreateBoxESP(obj)
+            end
+            foundObjects[obj] = true
+        end
+    end
+
+    -- Remove boxes for objects no longer present
+    for obj, box in pairs(category) do
+        if not foundObjects[obj] then
+            box:Remove()
+            category[obj] = nil
+        end
+    end
+end
+
+RunService.RenderStepped:Connect(function()
+    local viewportSize = Camera.ViewportSize
+
+    -- Player ESP
+    for player, drawings in pairs(ESP) do
+        local character = player.Character
+        local hrp = character and character:FindFirstChild("HumanoidRootPart")
+        local hum = character and character:FindFirstChildOfClass("Humanoid")
+
+        if character and hrp and hum and hum.Health > 0 then
+            local pos, onscreen = Camera:WorldToViewportPoint(hrp.Position)
+            local width = 2 * 1000 / pos.Z
+            local height = 3 * 1000 / pos.Z
+            local x = pos.X - width / 2
+            local y = pos.Y - height / 2
+
+            if Toggles.VD_PlayersESP then
+                local vdTeam = getVDTeam(player)
+                if vdTeam == "Killer" then
+                    drawings.Highlight.FillColor = Color3.fromRGB(255, 0, 0)
+                    drawings.Name.Text = "Killer - " .. player.Name
+                    drawings.Name.Color = Color3.fromRGB(255, 0, 0)
+                elseif vdTeam == "Survivor" then
+                    drawings.Highlight.FillColor = Color3.fromRGB(0, 255, 0)
+                    drawings.Name.Text = player.Name
+                    drawings.Name.Color = Color3.fromRGB(0, 255, 0)
+                else
+                    drawings.Highlight.Enabled = false
+                    drawings.Name.Visible = false
+                    drawings.Box.Visible = false
+                    drawings.Tracer.Visible = false
+                    drawings.Health.Visible = false
+                    continue
+                end
+
+                drawings.Highlight.Enabled = Toggles.VD_Highlight
+                drawings.Highlight.Adornee = character
+
+                drawings.Name.Position = Vector2.new(pos.X, pos.Y - height / 2 - 16)
+                drawings.Name.Visible = onscreen
+
+                if Toggles.VD_Boxes then
+                    drawings.Box.Size = Vector2.new(width, height)
+                    drawings.Box.Position = Vector2.new(x, y)
+                    drawings.Box.Color = drawings.Highlight.FillColor
+                    drawings.Box.Visible = onscreen
+                else
+                    drawings.Box.Visible = false
+                end
+
+                drawings.Tracer.Visible = false
+                drawings.Health.Visible = false
+
+            else
+                -- Normal ESP toggles (if not using VD Players ESP)
+                if Toggles.Boxes then
+                    drawings.Box.Size = Vector2.new(width, height)
+                    drawings.Box.Position = Vector2.new(x, y)
+                    drawings.Box.Color = Color3.fromRGB(255, 255, 255)
+                    drawings.Box.Visible = onscreen
+                else
+                    drawings.Box.Visible = false
+                end
+
+                if Toggles.Tracers then
+                    drawings.Tracer.From = Vector2.new(viewportSize.X / 2, viewportSize.Y)
+                    drawings.Tracer.To = Vector2.new(pos.X, pos.Y)
+                    drawings.Tracer.Color = Color3.fromRGB(255, 255, 255)
+                    drawings.Tracer.Visible = onscreen
+                else
+                    drawings.Tracer.Visible = false
+                end
+
+                if Toggles.Name then
+                    drawings.Name.Text = player.Name
+                    drawings.Name.Color = Color3.fromRGB(255, 255, 255)
+                    drawings.Name.Position = Vector2.new(pos.X, pos.Y - height / 2 - 16)
+                    drawings.Name.Visible = onscreen
+                else
+                    drawings.Name.Visible = false
+                end
+
+                if Toggles.Health then
+                    drawings.Health.Text = math.floor(hum.Health) .. " HP"
+                    drawings.Health.Color = Color3.fromRGB(0, 255, 0)
+                    drawings.Health.Position = Vector2.new(pos.X, pos.Y + height / 2 + 2)
+                    drawings.Health.Visible = onscreen
+                else
+                    drawings.Health.Visible = false
+                end
+
+                if Toggles.Highlight then
+                    drawings.Highlight.FillColor = Color3.fromRGB(0, 120, 255)
+                    drawings.Highlight.Enabled = true
+                    drawings.Highlight.Adornee = character
+                else
+                    drawings.Highlight.Enabled = false
+                end
+            end
+        else
+            for _, d in pairs(drawings) do
+                if typeof(d) ~= "Instance" then
+                    d.Visible = false
+                end
+            end
+            if drawings.Highlight then
+                drawings.Highlight.Enabled = false
+            end
+        end
+    end
+
+    -- Update World ESP
+    if Toggles.VD_GeneratorESP then
+        UpdateWorldESP("Generators", "Generators")
+        for obj, box in pairs(WorldESP.Generators) do
+            if obj and obj:IsDescendantOf(workspace) then
+                local primaryPart = obj:IsA("BasePart") and obj or obj.PrimaryPart
+                if primaryPart then
+                    local pos, onScreen = Camera:WorldToViewportPoint(primaryPart.Position)
+                    if onScreen and pos.Z > 0 then
+                        local size = primaryPart.Size
+                        local width = 1000 / pos.Z * size.X
+                        local height = 1000 / pos.Z * size.Y
+                        box.Position = Vector2.new(pos.X - width / 2, pos.Y - height / 2)
+                        box.Size = Vector2.new(width, height)
+                        box.Color = Color3.fromRGB(255, 255, 0) -- Yellow for Generators
+                        box.Visible = true
+                    else
+                        box.Visible = false
+                    end
+                else
+                    box.Visible = false
+                end
+            else
+                box.Visible = false
+            end
+        end
+    else
+        for _, box in pairs(WorldESP.Generators) do
+            box.Visible = false
+        end
+    end
+
+    if Toggles.VD_PalletESP then
+        UpdateWorldESP("Pallets", "Pallets")
+        for obj, box in pairs(WorldESP.Pallets) do
+            if obj and obj:IsDescendantOf(workspace) then
+                local primaryPart = obj:IsA("BasePart") and obj or obj.PrimaryPart
+                if primaryPart then
+                    local pos, onScreen = Camera:WorldToViewportPoint(primaryPart.Position)
+                    if onScreen and pos.Z > 0 then
+                        local size = primaryPart.Size
+                        local width = 1000 / pos.Z * size.X
+                        local height = 1000 / pos.Z * size.Y
+                        box.Position = Vector2.new(pos.X - width / 2, pos.Y - height / 2)
+                        box.Size = Vector2.new(width, height)
+                        box.Color = Color3.fromRGB(0, 255, 255) -- Cyan for Pallets
+                        box.Visible = true
+                    else
+                        box.Visible = false
+                    end
+                else
+                    box.Visible = false
+                end
+            else
+                box.Visible = false
+            end
+        end
+    else
+        for _, box in pairs(WorldESP.Pallets) do
+            box.Visible = false
+        end
+    end
+
+    if Toggles.VD_WindowESP then
+        UpdateWorldESP("Windows", "Windows")
+        for obj, box in pairs(WorldESP.Windows) do
+            if obj and obj:IsDescendantOf(workspace) then
+                local primaryPart = obj:IsA("BasePart") and obj or obj.PrimaryPart
+                if primaryPart then
+                    local pos, onScreen = Camera:WorldToViewportPoint(primaryPart.Position)
+                    if onScreen and pos.Z > 0 then
+                        local size = primaryPart.Size
+                        local width = 1000 / pos.Z * size.X
+                        local height = 1000 / pos.Z * size.Y
+                        box.Position = Vector2.new(pos.X - width / 2, pos.Y - height / 2)
+                        box.Size = Vector2.new(width, height)
+                        box.Color = Color3.fromRGB(255, 0, 255) -- Magenta for Windows
+                        box.Visible = true
+                    else
+                        box.Visible = false
+                    end
+                else
+                    box.Visible = false
+                end
+            else
+                box.Visible = false
+            end
+        end
+    else
+        for _, box in pairs(WorldESP.Windows) do
+            box.Visible = false
+        end
+    end
+end)
